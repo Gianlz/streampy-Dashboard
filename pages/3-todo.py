@@ -41,6 +41,7 @@ def todo():
         layout="wide",
         initial_sidebar_state="collapsed"
     )
+
     st.title("Gerenciador de Tarefas")
 
     usuario_atual = st.session_state.get('usuario', '')
@@ -52,15 +53,14 @@ def todo():
         st.session_state.tarefas = carregar_tarefas(usuario_atual)
 
     with st.expander("Adicionar Nova Tarefa", expanded=False):
-        col1, col2, col3 = st.columns([3, 1, 1])
+        nova_tarefa = st.text_input("Descrição da tarefa")
+        col1, col2 = st.columns(2)
         with col1:
-            nova_tarefa = st.text_input("Descrição da tarefa")
-        with col2:
             data_tarefa = st.date_input("Data", min_value=datetime.date.today())
-        with col3:
+        with col2:
             hora_tarefa = st.time_input("Hora")
         
-        if st.button("Adicionar") and nova_tarefa:
+        if st.button("Adicionar", use_container_width=True) and nova_tarefa:
             nova_linha = pd.DataFrame({
                 'Data': [data_tarefa], 
                 'Hora': [hora_tarefa], 
@@ -83,36 +83,32 @@ def todo():
 
     for idx, tarefa in tarefas_filtradas.iterrows():
         with st.container():
-            col1, col2, col3, col4, col5 = st.columns([0.5, 0.5, 3, 0.5, 0.5])
+            st.write(f"🕒 {tarefa['Hora'].strftime('%H:%M')} - {tarefa['Tarefa']}")
             
+            col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 st.checkbox(
-                    "Marcar como concluída",
+                    "Concluída",
                     value=tarefa['Concluída'],
                     key=f"check_{idx}",
-                    label_visibility="collapsed",
                     on_change=lambda: (
                         st.session_state.tarefas.at.__setitem__((idx, 'Concluída'), st.session_state[f"check_{idx}"]),
                         salvar_tarefas(st.session_state.tarefas, usuario_atual)
                     )
                 )
             with col2:
-                st.write(tarefa['Hora'].strftime("%H:%M"))
-            with col3:
-                st.write(tarefa['Tarefa'])
-            with col4:
-                if st.button("✏️", key=f"edit_{idx}", help="Editar tarefa"):
+                if st.button("✏️ Editar", key=f"edit_{idx}", use_container_width=True):
                     st.session_state[f"editing_{idx}"] = True
-            with col5:
-                if st.button("🗑️", key=f"delete_{idx}", help="Excluir tarefa"):
+            with col3:
+                if st.button("🗑️ Excluir", key=f"delete_{idx}", use_container_width=True):
                     st.session_state.tarefas = st.session_state.tarefas.drop(idx)
                     salvar_tarefas(st.session_state.tarefas, usuario_atual)
                     st.rerun()
-            
+        
             if st.session_state.get(f"editing_{idx}", False):
                 nova_tarefa = st.text_input("Editar tarefa", value=tarefa['Tarefa'], key=f"edit_input_{idx}")
                 nova_hora = st.time_input("Editar hora", value=tarefa['Hora'], key=f"edit_time_{idx}")
-                if st.button("Salvar", key=f"save_edit_{idx}"):
+                if st.button("💾 Salvar", key=f"save_edit_{idx}", use_container_width=True):
                     st.session_state.tarefas.at[idx, 'Tarefa'] = nova_tarefa
                     st.session_state.tarefas.at[idx, 'Hora'] = nova_hora
                     salvar_tarefas(st.session_state.tarefas, usuario_atual)
@@ -120,6 +116,7 @@ def todo():
                     st.success("Tarefa atualizada com sucesso!")
                     st.rerun()
 
+    st.divider()
     st.subheader("Estatísticas")
     tarefas_usuario = st.session_state.tarefas[st.session_state.tarefas['Usuario'] == usuario_atual]
     total_tarefas = len(tarefas_usuario)
