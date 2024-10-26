@@ -1,6 +1,26 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import json
+import os
+
+def salvar_tarefas(tarefas):
+    with open('tarefas.json', 'w') as f:
+        json.dump(tarefas.to_dict('records'), f, default=str)
+
+def carregar_tarefas():
+    if os.path.exists('tarefas.json'):
+        try:
+            with open('tarefas.json', 'r') as f:
+                dados = json.load(f)
+                df = pd.DataFrame(dados)
+                df['Data'] = pd.to_datetime(df['Data']).dt.date
+                df['Hora'] = pd.to_datetime(df['Hora'], format='%H:%M:%S').dt.time
+                return df
+        except json.JSONDecodeError:
+            # Se o arquivo estiver corrompido, retorna um DataFrame vazio
+            return pd.DataFrame(columns=['Data', 'Hora', 'Tarefa', 'Concluída'])
+    return pd.DataFrame(columns=['Data', 'Hora', 'Tarefa', 'Concluída'])
 
 def todo():
     st.set_page_config(page_title="Lista de Tarefas", page_icon=":clipboard:", layout="wide", initial_sidebar_state="collapsed")
@@ -8,7 +28,7 @@ def todo():
 
     # Inicializar a lista de tarefas no estado da sessão
     if 'tarefas' not in st.session_state:
-        st.session_state.tarefas = pd.DataFrame(columns=['Data', 'Hora', 'Tarefa', 'Concluída'])
+        st.session_state.tarefas = carregar_tarefas()
 
     # Adicionar nova tarefa
     with st.expander("Adicionar Nova Tarefa", expanded=False):
@@ -24,6 +44,7 @@ def todo():
             if nova_tarefa:
                 nova_linha = pd.DataFrame({'Data': [data_tarefa], 'Hora': [hora_tarefa], 'Tarefa': [nova_tarefa], 'Concluída': [False]})
                 st.session_state.tarefas = pd.concat([st.session_state.tarefas, nova_linha], ignore_index=True)
+                salvar_tarefas(st.session_state.tarefas)
                 st.success("Tarefa adicionada com sucesso!")
                 st.rerun()
 
@@ -37,17 +58,18 @@ def todo():
             col1, col2, col3, col4, col5 = st.columns([0.5, 0.5, 3, 0.5, 0.5])
             
             with col1:
-                concluida = st.checkbox("", value=tarefa['Concluída'], key=f"check_{idx}", on_change=lambda: st.session_state.tarefas.at.__setitem__((idx, 'Concluída'), st.session_state[f"check_{idx}"]))
+                concluida = st.checkbox("Marcar como concluída", value=tarefa['Concluída'], key=f"check_{idx}", label_visibility="collapsed", on_change=lambda: (st.session_state.tarefas.at.__setitem__((idx, 'Concluída'), st.session_state[f"check_{idx}"]), salvar_tarefas(st.session_state.tarefas)))
             with col2:
                 st.write(tarefa['Hora'].strftime("%H:%M"))
             with col3:
                 st.write(tarefa['Tarefa'])
             with col4:
-                if st.button("✏️", key=f"edit_{idx}"):
+                if st.button("✏️", key=f"edit_{idx}", help="Editar tarefa"):
                     st.session_state[f"editing_{idx}"] = True
             with col5:
-                if st.button("🗑️", key=f"delete_{idx}"):
+                if st.button("🗑️", key=f"delete_{idx}", help="Excluir tarefa"):
                     st.session_state.tarefas = st.session_state.tarefas.drop(idx)
+                    salvar_tarefas(st.session_state.tarefas)
                     st.rerun()
            
             
@@ -57,6 +79,7 @@ def todo():
                 if st.button("Salvar", key=f"save_edit_{idx}"):
                     st.session_state.tarefas.at[idx, 'Tarefa'] = nova_tarefa
                     st.session_state.tarefas.at[idx, 'Hora'] = nova_hora
+                    salvar_tarefas(st.session_state.tarefas)
                     st.session_state[f"editing_{idx}"] = False
                     st.success("Tarefa atualizada com sucesso!")
                     st.rerun()
